@@ -1791,6 +1791,9 @@ void LoadStyle(const std::string& spath, float fontScaling, ImGuiStyle* dst, std
                 READ_FLT(TreeLinesRounding);
                 READ_VEC(ButtonTextAlign);
                 READ_VEC(SelectableTextAlign);
+#if IMGUI_VERSION_NUM >= 19270
+                READ_FLT(SeparatorSize);
+#endif
                 READ_FLT(SeparatorTextBorderSize);
                 READ_VEC(SeparatorTextAlign);
                 READ_VEC(SeparatorTextPadding);

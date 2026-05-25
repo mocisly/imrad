@@ -338,7 +338,7 @@ void ClassWizard::Draw()
         /// @end Button
 
         /// @separator
-        ImGui::End();
+        ImGui::EndPopup();
         /// @end TopWindow
     }
     ImGui::PopStyleVar();

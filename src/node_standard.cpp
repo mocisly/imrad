@@ -383,7 +383,7 @@ void UINode::DrawInteriorRect(UIContext& ctx)
     size_t level = ctx.parents.size() - 1;
     ImDrawList* dl = ImGui::GetWindowDrawList();
     int snapCount = UIContext::Color::COUNT - UIContext::Color::Snap1;
-    dl->AddRect(cached_pos, cached_pos + cached_size, ctx.colors[UIContext::Snap1 + level % snapCount], 0, 0, 3);
+    dl->AddRect(cached_pos, cached_pos + cached_size, ctx.colors[UIContext::Snap1 + level % snapCount], 0, ImDrawFlags_None, 2.f * ImRad::GetUserData().dpiScale);
 }
 
 void UINode::DrawSnap(UIContext& ctx)
