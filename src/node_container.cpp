@@ -167,6 +167,10 @@ ImDrawList* Table::DoDraw(UIContext& ctx)
         ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, style_rowBgAlt.eval(ImGuiCol_TableRowBgAlt, ctx));
     if (!style_childBg.empty())
         ImGui::PushStyleColor(ImGuiCol_ChildBg, style_childBg.eval(ImGuiCol_ChildBg, ctx));
+    if (!style_borderLight.empty())
+        ImGui::PushStyleColor(ImGuiCol_TableBorderLight, style_borderLight.eval(ImGuiCol_TableBorderLight, ctx));
+    if (!style_borderStrong.empty())
+        ImGui::PushStyleColor(ImGuiCol_TableBorderStrong, style_borderStrong.eval(ImGuiCol_TableBorderStrong, ctx));
     if (scrollWhenDragging)
         ImRad::PushInvisibleScrollbar();
 
@@ -244,6 +248,10 @@ ImDrawList* Table::DoDraw(UIContext& ctx)
         ImGui::PopStyleColor();
     if (!style_rowBgAlt.empty())
         ImGui::PopStyleColor();
+    if (!style_borderLight.empty())
+        ImGui::PopStyleColor();
+    if (!style_borderStrong.empty())
+        ImGui::PopStyleColor();
     if (style_cellPadding.has_value())
         ImGui::PopStyleVar();
     if (style_rounding.has_value())
@@ -263,6 +271,8 @@ Table::Properties()
         { "appearance.rowBg", &style_rowBg },
         { "appearance.rowBgAlt", &style_rowBgAlt },
         { "appearance.childBg", &style_childBg },
+        { "appearance.borderLight", &style_borderLight },
+        { "appearance.borderStrong", &style_borderStrong },
         { "appearance.cellPadding", &style_cellPadding },
         { "appearance.rounding", &style_rounding },
         { "appearance.rowHeight##table", &rowHeight },
@@ -272,13 +282,13 @@ Table::Properties()
         { "appearance.hfont.summary", nullptr },
         { "appearance.hfont.name", &style_headerFontName },
         { "appearance.hfont.size", &style_headerFontSize },
-        { "appearance.header##table", &header },
         { "behavior.flags##table", &flags },
         { "behavior.multiSelFlags", &msflags },
         { "behavior.columns##table", nullptr },
         { "behavior.rowCount.limit##table", &itemCount.limit },
         { "behavior.rowCount.reversed##table", &itemCount.reversed },
         { "behavior.rowFilter##table", &rowFilter },
+        { "behavior.header##table", &header },
         { "behavior.scrollFreeze.frz##table", nullptr },
         { "behavior.scrollFreeze.x##table", &scrollFreeze_x },
         { "behavior.scrollFreeze.y##table", &scrollFreeze_y },
@@ -329,18 +339,34 @@ bool Table::PropertyUI(int i, UIContext& ctx)
         changed |= BindingButton("childBg", &style_childBg, ctx);
         break;
     case 4:
+        ImGui::Text("borderLight");
+        ImGui::TableNextColumn();
+        ImGui::SetNextItemWidth(-ImGui::GetFrameHeight());
+        changed = InputBindable(&style_borderLight, ImGuiCol_TableBorderLight, ctx);
+        ImGui::SameLine(0, 0);
+        changed |= BindingButton("borderLight", &style_borderLight, ctx);
+        break;
+    case 5:
+        ImGui::Text("borderStrong");
+        ImGui::TableNextColumn();
+        ImGui::SetNextItemWidth(-ImGui::GetFrameHeight());
+        changed = InputBindable(&style_borderStrong, ImGuiCol_TableBorderStrong, ctx);
+        ImGui::SameLine(0, 0);
+        changed |= BindingButton("borderStrong", &style_borderStrong, ctx);
+        break;
+    case 6:
         ImGui::Text("cellPadding");
         ImGui::TableNextColumn();
         ImGui::SetNextItemWidth(-ImGui::GetFrameHeight());
         changed = InputDirectVal(&style_cellPadding, ctx);
         break;
-    case 5:
+    case 7:
         ImGui::Text("rounding");
         ImGui::TableNextColumn();
         ImGui::SetNextItemWidth(-ImGui::GetFrameHeight());
         changed = InputDirectVal(&style_rounding, ctx);
         break;
-    case 6:
+    case 8:
         ImGui::Text("rowHeight");
         ImGui::TableNextColumn();
         ImGui::SetNextItemWidth(-ImGui::GetFrameHeight());
@@ -349,12 +375,12 @@ bool Table::PropertyUI(int i, UIContext& ctx)
         ImGui::SameLine(0, 0);
         changed |= BindingButton("rowHeight", &rowHeight, ctx);
         break;
-    case 7:
+    case 9:
         ImGui::Text("font");
         ImGui::TableNextColumn();
         TextFontInfo(ctx);
         break;
-    case 8:
+    case 10:
         ImGui::Text("name");
         ImGui::TableNextColumn();
         ImGui::SetNextItemWidth(-ImGui::GetFrameHeight());
@@ -362,7 +388,7 @@ bool Table::PropertyUI(int i, UIContext& ctx)
         ImGui::SameLine(0, 0);
         changed |= BindingButton("font", &style_fontName, ctx);
         break;
-    case 9:
+    case 11:
         ImGui::Text("size");
         ImGui::TableNextColumn();
         ImGui::SetNextItemWidth(-ImGui::GetFrameHeight());
@@ -370,7 +396,7 @@ bool Table::PropertyUI(int i, UIContext& ctx)
         ImGui::SameLine(0, 0);
         changed |= BindingButton("font_size", &style_fontSize, ctx);
         break;
-    case 10:
+    case 12:
     {
         ImGui::Text("headerFont");
         ImGui::TableNextColumn();
@@ -379,7 +405,7 @@ bool Table::PropertyUI(int i, UIContext& ctx)
         ::TextFontInfo(style_headerFontName, style_headerFontSize, changed, ctx);
         break;
     }
-    case 11:
+    case 13:
         ImGui::Text("name");
         ImGui::TableNextColumn();
         ImGui::SetNextItemWidth(-ImGui::GetFrameHeight());
@@ -387,7 +413,7 @@ bool Table::PropertyUI(int i, UIContext& ctx)
         ImGui::SameLine(0, 0);
         changed |= BindingButton("header_font_name", &style_headerFontName, ctx);
         break;
-    case 12:
+    case 14:
         ImGui::Text("size");
         ImGui::TableNextColumn();
         ImGui::SetNextItemWidth(-ImGui::GetFrameHeight());
@@ -395,21 +421,15 @@ bool Table::PropertyUI(int i, UIContext& ctx)
         ImGui::SameLine(0, 0);
         changed |= BindingButton("header_font_size", &style_headerFontSize, ctx);
         break;
-    case 13:
-        ImGui::Text("showHeader");
-        ImGui::TableNextColumn();
-        fl = header != Defaults().header ? InputDirectVal_Modified : 0;
-        changed = InputDirectVal(&header, fl, ctx);
-        break;
-    case 14:
+    case 15:
         changed = InputDirectValFlags("flags", &flags, Defaults().flags, ctx);
         break;
-    case 15:
+    case 16:
         ImGui::BeginDisabled(mssel.empty());
         changed = InputDirectValFlags("multiSelFlags", &msflags, Defaults().msflags, ctx);
         ImGui::EndDisabled();
         break;
-    case 16:
+    case 17:
     {
         ImGui::Text("columns");
         ImGui::TableNextColumn();
@@ -432,7 +452,7 @@ bool Table::PropertyUI(int i, UIContext& ctx)
         ImGui::PopFont();
         break;
     }
-    case 17:
+    case 18:
         ImGui::Text("rowCount");
         ImGui::TableNextColumn();
         ImGui::SetNextItemWidth(-ImGui::GetFrameHeight());
@@ -440,14 +460,14 @@ bool Table::PropertyUI(int i, UIContext& ctx)
         ImGui::SameLine(0, 0);
         changed |= BindingButton("rowCount", &itemCount.limit, ctx);
         break;
-    case 18:
+    case 19:
         ImGui::Text("reversed");
         ImGui::TableNextColumn();
         ImGui::SetNextItemWidth(-ImGui::GetFrameHeight());
         fl = itemCount.reversed != Defaults().itemCount.reversed ? InputDirectVal_Modified : 0;
         changed = InputDirectVal(&itemCount.reversed, fl, ctx);
         break;
-    case 19:
+    case 20:
         ImGui::BeginDisabled(itemCount.empty());
         ImGui::Text("rowFilter");
         ImGui::TableNextColumn();
@@ -458,7 +478,13 @@ bool Table::PropertyUI(int i, UIContext& ctx)
         changed |= BindingButton("rowFilter", &rowFilter, ctx);
         ImGui::EndDisabled();
         break;
-    case 20:
+    case 21:
+        ImGui::Text("showHeader");
+        ImGui::TableNextColumn();
+        fl = header != Defaults().header ? InputDirectVal_Modified : 0;
+        changed = InputDirectVal(&header, fl, ctx);
+        break;
+    case 22:
     {
         ImGui::Text("scrollFreeze");
         ImGui::TableNextColumn();
@@ -471,35 +497,35 @@ bool Table::PropertyUI(int i, UIContext& ctx)
         ImGui::PopFont();
         break;
     }
-    case 21:
+    case 23:
         ImGui::Text("columns");
         ImGui::TableNextColumn();
         ImGui::SetNextItemWidth(-ImGui::GetFrameHeight());
         fl = scrollFreeze_x ? InputDirectVal_Modified : 0;
         changed = InputDirectVal(&scrollFreeze_x, fl, ctx);
         break;
-    case 22:
+    case 24:
         ImGui::Text("rows");
         ImGui::TableNextColumn();
         ImGui::SetNextItemWidth(-ImGui::GetFrameHeight());
         fl = scrollFreeze_y ? InputDirectVal_Modified : 0;
         changed = InputDirectVal(&scrollFreeze_y, fl, ctx);
         break;
-    case 23:
+    case 25:
         ImGui::Text("scrollWhenDragging");
         ImGui::TableNextColumn();
         ImGui::SetNextItemWidth(-ImGui::GetFrameHeight());
         fl = scrollWhenDragging != Defaults().scrollWhenDragging ? InputDirectVal_Modified : 0;
         changed = InputDirectVal(&scrollWhenDragging, fl, ctx);
         break;
-    case 24:
+    case 26:
         ImGui::Text("refreshButton");
         ImGui::TableNextColumn();
         ImGui::SetNextItemWidth(-ImGui::GetFrameHeight());
         fl = scrollRefreshButton != Defaults().scrollRefreshButton ? InputDirectVal_Modified : 0;
         changed = InputDirectValEnum(&scrollRefreshButton, fl, ctx);
         break;
-    case 25:
+    case 27:
         ImGui::BeginDisabled(itemCount.empty());
         ImGui::Text("rowIndex");
         ImGui::TableNextColumn();
@@ -507,14 +533,14 @@ bool Table::PropertyUI(int i, UIContext& ctx)
         changed = InputFieldRef(&itemCount.index, true, ctx);
         ImGui::EndDisabled();
         break;
-    case 26:
+    case 28:
         ImGui::Text("multiSelection");
         ImGui::TableNextColumn();
         ImGui::SetNextItemWidth(-ImGui::GetFrameHeight());
         changed = InputFieldRef(&mssel, true, ctx);
         break;
     default:
-        return Widget::PropertyUI(i - 27, ctx);
+        return Widget::PropertyUI(i - 29, ctx);
     }
     return changed;
 }
@@ -604,6 +630,16 @@ void Table::DoExport(std::ostream& os, UIContext& ctx)
     {
         os << ctx.ind << "ImGui::PushStyleColor(ImGuiCol_ChildBg, "
             << style_childBg.to_arg() << ");\n";
+    }
+    if (!style_borderLight.empty())
+    {
+        os << ctx.ind << "ImGui::PushStyleColor(ImGuiCol_TableBorderLight, "
+            << style_borderLight.to_arg() << ");\n";
+    }
+    if (!style_borderStrong.empty())
+    {
+        os << ctx.ind << "ImGui::PushStyleColor(ImGuiCol_TableBorderStrong, "
+            << style_borderStrong.to_arg() << ");\n";
     }
     if (scrollWhenDragging)
     {
@@ -787,6 +823,10 @@ void Table::DoExport(std::ostream& os, UIContext& ctx)
         os << ctx.ind << "ImGui::PopStyleColor();\n";
     if (!style_headerBg.empty())
         os << ctx.ind << "ImGui::PopStyleColor();\n";
+    if (!style_borderLight.empty())
+        os << ctx.ind << "ImGui::PopStyleColor();\n";
+    if (!style_borderStrong.empty())
+        os << ctx.ind << "ImGui::PopStyleColor();\n";
     if (style_cellPadding.has_value())
         os << ctx.ind << "ImGui::PopStyleVar();\n";
     if (style_rounding.has_value())
@@ -816,6 +856,10 @@ void Table::DoImport(const cpp::stmt_iterator& sit, UIContext& ctx)
             style_rowBgAlt.set_from_arg(sit->params[1]);
         if (sit->params.size() && sit->params[0] == "ImGuiCol_ChildBg")
             style_childBg.set_from_arg(sit->params[1]);
+        if (sit->params.size() && sit->params[0] == "ImGuiCol_TableBorderLight")
+            style_borderLight.set_from_arg(sit->params[1]);
+        if (sit->params.size() && sit->params[0] == "ImGuiCol_TableBorderStrong")
+            style_borderStrong.set_from_arg(sit->params[1]);
     }
     else if (sit->kind == cpp::IfCallBlock && sit->callee == "ImGui::BeginTable")
     {
