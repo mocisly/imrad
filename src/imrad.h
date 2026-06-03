@@ -147,7 +147,7 @@ struct IOUserData
     ImVec2 displayOffsetMin;
     ImVec2 displayOffsetMax;
     float dimBgRatio = 1.f;
-    bool kbdShown = false;
+    int kbdHeight = 0;
     std::string activeActivity;
     std::string activeConfig;
     int animOrder = 0;
@@ -158,6 +158,7 @@ struct IOUserData
 
     void NewFrame(); // Call before ImGui::NewFrame
     Rect WorkRect() const;
+    ImVec2 WindowContentSize() const;
 };
 
 struct Texture
@@ -566,7 +567,17 @@ Rect IOUserData::WorkRect() const
         displayOffsetMin.x,
         displayOffsetMin.y,
         ImGui::GetMainViewport()->Size.x - displayOffsetMax.x,
-        ImGui::GetMainViewport()->Size.y - displayOffsetMax.y };
+        ImGui::GetMainViewport()->Size.y - displayOffsetMax.y - kbdHeight };
+}
+
+ImVec2 IOUserData::WindowContentSize() const
+{
+    ImVec2 cs = WorkRect().GetSize();
+    cs.y += kbdHeight;
+    ImVec2 pad = ImGui::GetStyle().WindowPadding;
+    cs.x -= 2 * pad.x;
+    cs.y -= 2 * pad.y;
+    return cs;
 }
 
 const float Animator::DurOpenPopup = 0.4f;

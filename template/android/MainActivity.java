@@ -28,7 +28,8 @@ implements TextWatcher, TextView.OnEditorActionListener
     protected View mView;
     private EditText mEditText;
 
-    private native void OnKeyboardShown(int h);
+
+    private native void OnGlobalLayout(int statusBarHeight, int navBarHeight, int kbdHeight);
     private native void OnScreenRotation(int deg);
     private native void OnInputCharacter(int ch);
     private native void OnSpecialKey(int code);
@@ -68,12 +69,17 @@ implements TextWatcher, TextView.OnEditorActionListener
                 new ViewTreeObserver.OnGlobalLayoutListener() {
                     public void onGlobalLayout() {
                         View view = getWindow().getDecorView();
+                        //DisplayMetrics displayMetrics = new DisplayMetrics();
+                        //getWindowManager().getDefaultDisplay().getRealMetrics(displayMetrics);
                         int screenHeight = view.getRootView().getHeight();
+                        int id = getResources().getIdentifier("config_showNavigationBar","bool","android");
+                        boolean showNavBar = id > 0 && getResources().getBoolean(id);
                         Rect r = new Rect();
                         view.getWindowVisibleDisplayFrame(r);
-                        //double hkbd = 2.54 * (double)(screenHeight - r.bottom) / getDpi();
-                        //boolean kbdShown = hkbd > 3; //kbd height more than 3cm
-                        OnKeyboardShown(screenHeight - r.bottom);
+                        int bottomAreaHeight = screenHeight - r.bottom;
+                        int dpi = getResources().getConfiguration().densityDpi;
+                        int navBarHeight = showNavBar ? Math.min(48 * dpi / 160, bottomAreaHeight) : 0;
+                        OnGlobalLayout(r.top, navBarHeight, bottomAreaHeight - navBarHeight);
                     }
                 });
     }
@@ -102,9 +108,9 @@ implements TextWatcher, TextView.OnEditorActionListener
                         break;
                     default: //ImeText
                         //to enforce NO_SUGGESTIONS we can use TYPE_TEXT_VARIATION_VISIBLE_PASSWORD but then Passwords button may be shown which is weird
-                        //mEditText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS | InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD; //this resets selection
+                        mEditText.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);// | InputType.TYPE_TEXT_VARIATION_PERSON_NAME); //this resets selection
                         //this seems to work better:
-                        mEditText.setInputType(InputType.TYPE_NULL);
+                        //mEditText.setInputType(InputType.TYPE_NULL);
                         //mEditText.setSelection(sel1, sel2);
                         mgr.showSoftInput(mEditText, InputMethodManager.SHOW_IMPLICIT);
                         break;

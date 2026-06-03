@@ -98,11 +98,12 @@ void Draw()
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_${JNI_PACKAGE}_MainActivity_OnKeyboardShown(JNIEnv *env, jobject thiz, jint height)
-{
-    g_KbdHeight = height;
-    ImRad::GetUserData().kbdShown = (float)height / ImRad::GetUserData().dpiScale > 100;
-    if (!ImRad::GetUserData().kbdShown)
+Java_${JNI_PACKAGE}_MainActivity_OnGlobalLayout(JNIEnv *env, jobject thiz, jint statusBarHeight, jint navBarHeight, jint kbdHeight) {
+    g_StatusBarHeight = statusBarHeight;
+    g_NavBarHeight = navBarHeight;
+    g_KbdHeight = kbdHeight;
+    bool kbdShown = (float) kbdHeight / ImRad::GetUserData().dpiScale > 100;
+    if (!kbdShown)
         g_ImeType = 0;
     UpdateScreenRect();
 }
@@ -436,39 +437,40 @@ static void PerformHapticFeedback(int kind)
 static void GetDisplayInfo()
 {
     jmethodID method_id = g_thisEnv->GetMethodID(g_nativeActivityClazz, "getDpi", "()I");
-    if (method_id == nullptr)
-        return;
-
-    jint dpi = g_thisEnv->CallIntMethod(g_App->activity->clazz, method_id);
-    //g_NavBarHeight = 48 * dpi / 160; // Uses android dp definition
-    g_StatusBarHeight = 40 * dpi / 160; // Uses android dp definition
-    ImRad::GetUserData().dpiScale = (float)dpi / 140.f;
-    // Round dpiScale otherwise when using box sizers floating point errors in imgui
-    // accumulate and cause the window contentRegionRect to grow continuously
-    ImRad::GetUserData().dpiScale = (float)std::round(1000 * ImRad::GetUserData().dpiScale) / 1000.f;
+    if (method_id) {
+        jint dpi = g_thisEnv->CallIntMethod(g_App->activity->clazz, method_id);
+        ImRad::GetUserData().dpiScale = (float) dpi / 140.f;
+        //g_NavBarHeight = 48 * dpi / 160; // Uses android dp definition
+        //g_StatusBarHeight = 40 * dpi / 160; // Uses android dp definition
+        // Round dpiScale otherwise when using box sizers floating point errors in imgui
+        // accumulate and cause the window contentRegionRect to grow continuously
+        ImRad::GetUserData().dpiScale =
+                (float) std::round(1000 * ImRad::GetUserData().dpiScale) / 1000.f;
+        ImGui::GetStyle().FontScaleDpi = ImRad::GetUserData().dpiScale;
+    }
 
     method_id = g_thisEnv->GetMethodID(g_nativeActivityClazz, "getRotation", "()I");
-    if (method_id == nullptr)
-        return;
-
-    g_RotAngle = g_thisEnv->CallIntMethod(g_nativeActivityClazz, method_id);
-    UpdateScreenRect();
+    if (method_id) {
+        g_RotAngle = g_thisEnv->CallIntMethod(g_App->activity->clazz, method_id);
+        UpdateScreenRect();
+    }
 }
 
 void UpdateScreenRect()
 {
+    ImRad::GetUserData().kbdHeight = g_KbdHeight;
     switch (g_RotAngle) {
         case 0:
             ImRad::GetUserData().displayOffsetMin = { 0, (float)g_StatusBarHeight };
-            ImRad::GetUserData().displayOffsetMax = { 0, (float)g_NavBarHeight + (float)g_KbdHeight };
+            ImRad::GetUserData().displayOffsetMax = { 0, (float)g_NavBarHeight };
             break;
         case 90:
             ImRad::GetUserData().displayOffsetMin = { 0, (float)g_StatusBarHeight };
-            ImRad::GetUserData().displayOffsetMax = { (float)g_NavBarHeight, (float)g_KbdHeight };
+            ImRad::GetUserData().displayOffsetMax = { (float)g_NavBarHeight, 0 };
             break;
         case 270:
             ImRad::GetUserData().displayOffsetMin = { (float)g_NavBarHeight, (float)g_StatusBarHeight };
-            ImRad::GetUserData().displayOffsetMax = { 0, (float)g_KbdHeight };
+            ImRad::GetUserData().displayOffsetMax = { 0, 0 };
             break;
         default:
             break;
