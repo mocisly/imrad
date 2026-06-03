@@ -1100,6 +1100,8 @@ ImDrawList* Child::DoDraw(UIContext& ctx)
 
         auto cpos = ImRad::GetCursorData();
         ImGui::PushClipRect(ImGui::GetCurrentWindow()->InnerRect.Min, ImGui::GetCurrentWindow()->InnerRect.Max, false); //cancels column clip
+    
+    //todo: set ContentRegionRect so CalcItemSize(-1) aligns to InnerRect
         for (const auto& child : child_iterator(children, true))
         {
             child->Draw(ctx);

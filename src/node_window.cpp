@@ -108,6 +108,8 @@ void TopWindow::Draw(UIContext& ctx)
         ImGui::PushStyleColor(ImGuiCol_WindowBg, style_bg.eval(ImGuiCol_WindowBg, ctx));
     if (!style_menuBg.empty())
         ImGui::PushStyleColor(ImGuiCol_MenuBarBg, style_menuBg.eval(ImGuiCol_MenuBarBg, ctx));
+    if (scrollWhenDragging)
+        ImRad::PushInvisibleScrollbar();
 
     ImGui::SetNextWindowScroll({ 0, 0 }); //click on a child causes scrolling which doesn't go back
     ImGui::SetNextWindowPos(ctx.designAreaMin + ImVec2{ 20, 20 }); // , ImGuiCond_Always, { 0.5, 0.5 });
@@ -178,8 +180,20 @@ void TopWindow::Draw(UIContext& ctx)
     if (dimAll)
         ImGui::PushStyleVar(ImGuiStyleVar_Alpha, 0.2f);
 
-    for (size_t i = 0; i < children.size(); ++i)
-        children[i]->Draw(ctx);
+    for (const auto& child : child_iterator(children, false))
+    {
+        child->Draw(ctx);
+    }
+
+    auto cd = ImRad::GetCursorData();
+    //to make CalcItemSize(-1) align with InnerRect (no padding)
+    ImVec2 crx = ImRad::SetWindowContentRegionRectMax(ImRad::GetParentInnerRect().Max);
+    for (const auto& child : child_iterator(children, true))
+    {
+        child->Draw(ctx);
+    }
+    ImRad::SetWindowContentRegionRectMax(crx);
+    ImRad::SetCursorData(cd);
 
     if (dimAll)
         ImGui::PopStyleVar();
@@ -305,6 +319,8 @@ void TopWindow::Draw(UIContext& ctx)
         ImGui::PopStyleVar();
     if (style_fontName.has_value() || style_fontSize.has_value())
         ImGui::PopFont();
+    if (scrollWhenDragging)
+        ImRad::PopInvisibleScrollbar();
 }
 
 TopWindow::StyleCounters
@@ -386,6 +402,11 @@ TopWindow::ExportStyle(std::ostream& os, bool body, UIContext& ctx)
         ++sc.nvars;
         os << ctx.ind << "ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, "
             << style_scrollbarSize.to_arg(ctx.unit) << ");\n";
+    }
+    if (scrollWhenDragging)
+    {
+        ++sc.invscroll;
+        os << ctx.ind << "ImRad::PushInvisibleScrollbar();\n";
     }
 
     return sc;
@@ -866,10 +887,37 @@ void TopWindow::Export(std::ostream& os, UIContext& ctx)
         }
     }
 
-    for (const auto& ch : children)
-        ch->Export(os, ctx);
+    for (const auto& child : child_iterator(children, false))
+    {
+        child->Export(os, ctx);
+    }
 
     os << ctx.ind << "/// @separator\n";
+
+    if (scrollWhenDragging)
+    {
+        os << ctx.ind << "ImRad::ScrollWhenDragging(true, ImGuiDir_None);\n";
+    }
+
+    if (child_iterator(children, true))
+    {
+        std::string varCursorData = "tmpCursorData" + std::to_string(ctx.varCounter);
+        std::string varRectMax = "tmpCRRectMax" + std::to_string(ctx.varCounter);
+        os << ctx.ind << "auto " << varCursorData << " = ImRad::GetCursorData();\n";
+        //sets GetContentRegionAvail to InnerRect without padding
+        os << ctx.ind << "ImVec2 " << varRectMax << " = ImRad::SetWindowContentRegionRectMax(ImRad::GetParentInnerRect().Max);\n";
+        os << ctx.ind << "/// @separator\n\n";
+
+        for (const auto& child : child_iterator(children, true))
+        {
+            child->Export(os, ctx);
+        }
+
+        os << ctx.ind << "/// @separator\n";
+        os << ctx.ind << "ImRad::SetCursorData(" << varCursorData << ");\n";
+        os << ctx.ind << "ImRad::SetWindowContentRegionRectMax(" << varRectMax << ");\n";
+        ++ctx.varCounter;
+    }
 
     if (kind == Popup || kind == ModalPopup)
     {
@@ -1118,6 +1166,10 @@ void TopWindow::Import(cpp::stmt_iterator& sit, UIContext& ctx)
         {
             closeOnEscape = true;
         }
+        else if (sit->kind == cpp::CallExpr && sit->callee == "ImRad::ScrollWhenDragging")
+        {
+            scrollWhenDragging = true;
+        }
         else if (sit->kind == cpp::IfCallThenCall && sit->callee == "ImGui::IsWindowAppearing")
         {
             if (sit->params.empty() && sit->params2.empty())
@@ -1331,6 +1383,7 @@ TopWindow::Properties()
         { "behavior.title", &title, true },
         { "behavior.closeOnEscape", &closeOnEscape },
         { "behavior.initialActivity", &initialActivity },
+        { "behavior.scrollWhenDragging", &scrollWhenDragging },
         { "behavior.animation.type", &animation },
         { "behavior.animation.order", &animOrder },
         { "behavior.animation.allowDragging", &animAllowDragging },
@@ -1511,6 +1564,13 @@ bool TopWindow::PropertyUI(int i, UIContext& ctx)
         ImGui::EndDisabled();
         break;
     case 18:
+        ImGui::Text("scrollWhenDragging");
+        ImGui::TableNextColumn();
+        ImGui::SetNextItemWidth(-ImGui::GetFrameHeight());
+        fl = scrollWhenDragging != Defaults().scrollWhenDragging ? InputDirectVal_Modified : 0;
+        changed = InputDirectVal(&scrollWhenDragging, fl, ctx);
+        break;
+    case 19:
         ImGui::BeginDisabled(kind != Popup && kind != ModalPopup && kind != Activity);
         ImGui::Text("animation");
         ImGui::TableNextColumn();
@@ -1553,7 +1613,7 @@ bool TopWindow::PropertyUI(int i, UIContext& ctx)
         changed = InputDirectValEnum(&animation, fl, ctx);
         ImGui::EndDisabled();
         break;
-    case 19:
+    case 20:
         ImGui::BeginDisabled(animation != SlideHoriz && animation != SlideVert);
         ImGui::Text("sequenceNumber");
         ImGui::TableNextColumn();
@@ -1561,7 +1621,7 @@ bool TopWindow::PropertyUI(int i, UIContext& ctx)
         changed = InputDirectVal(&animOrder, fl, ctx);
         ImGui::EndDisabled();
         break;
-    case 20:
+    case 21:
         ImGui::BeginDisabled(animation == NoAnimation || animation == FadeIn);
         ImGui::Text("allowDragging");
         ImGui::TableNextColumn();
@@ -1569,7 +1629,7 @@ bool TopWindow::PropertyUI(int i, UIContext& ctx)
         changed = InputDirectVal(&animAllowDragging, fl, ctx);
         ImGui::EndDisabled();
         break;
-    case 21:
+    case 22:
         ImGui::BeginDisabled(flags & ImGuiWindowFlags_AlwaysAutoResize);
         ImGui::Text(kind == Activity || placement == Maximize ? "designSize" : "size");
         ImGui::TableNextColumn();
@@ -1580,7 +1640,7 @@ bool TopWindow::PropertyUI(int i, UIContext& ctx)
         ImGui::PopFont();
         ImGui::EndDisabled();
         break;
-    case 22:
+    case 23:
         ImGui::BeginDisabled(flags & ImGuiWindowFlags_AlwaysAutoResize);
         ImGui::Text("size_x");
         ImGui::TableNextColumn();
@@ -1591,7 +1651,7 @@ bool TopWindow::PropertyUI(int i, UIContext& ctx)
         changed |= BindingButton("size_x", &size_x, ctx);
         ImGui::EndDisabled();
         break;
-    case 23:
+    case 24:
         ImGui::BeginDisabled(flags & ImGuiWindowFlags_AlwaysAutoResize);
         ImGui::Text("size_y");
         ImGui::TableNextColumn();
@@ -1602,7 +1662,7 @@ bool TopWindow::PropertyUI(int i, UIContext& ctx)
         changed |= BindingButton("size_y", &size_y, ctx);
         ImGui::EndDisabled();
         break;
-    case 24:
+    case 25:
         ImGui::BeginDisabled((flags & ImGuiWindowFlags_AlwaysAutoResize) || kind == Activity);
         ImGui::Text("minimumSize");
         ImGui::TableNextColumn();
@@ -1613,7 +1673,7 @@ bool TopWindow::PropertyUI(int i, UIContext& ctx)
         ImGui::PopFont();
         ImGui::EndDisabled();
         break;
-    case 25:
+    case 26:
         ImGui::BeginDisabled((flags & ImGuiWindowFlags_AlwaysAutoResize) || kind == Activity);
         ImGui::Text("size_x");
         ImGui::TableNextColumn();
@@ -1624,7 +1684,7 @@ bool TopWindow::PropertyUI(int i, UIContext& ctx)
         changed |= BindingButton("minSize_x", &minSize_x, ctx);
         ImGui::EndDisabled();
         break;
-    case 26:
+    case 27:
         ImGui::BeginDisabled((flags & ImGuiWindowFlags_AlwaysAutoResize) || kind == Activity);
         ImGui::Text("size_y");
         ImGui::TableNextColumn();
@@ -1635,7 +1695,7 @@ bool TopWindow::PropertyUI(int i, UIContext& ctx)
         changed |= BindingButton("minSize_y", &minSize_y, ctx);
         ImGui::EndDisabled();
         break;
-    case 27:
+    case 28:
     {
         ImGui::BeginDisabled(kind == Activity);
         ImGui::Text("placement");

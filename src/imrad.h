@@ -1218,15 +1218,32 @@ int ScrollWhenDragging(bool drawScrollbars, ImGuiDir refreshButton)
 
     static int dragState = 0;
     static float refreshButtonPos = 0;
+    static ImGuiID lastActiveId = 0;
+    static bool inputReactivated = false;
 
     if (!ImGui::IsWindowFocused())
         return 0;
+    ImGuiWindow* window = ImGui::GetCurrentWindow();
+
+    // scrolling should preserve active input ID so keyboard doesn't disappear
+    if (ImGui::GetIO().WantTextInput && ImGui::GetActiveID())
+    {
+        lastActiveId = ImGui::GetActiveID();
+        //GImGui->InputTextReactivateId = lastActiveId;
+    }
+    else if (!ImGui::GetActiveID() && lastActiveId && ImGui::IsMouseDown(ImGuiMouseButton_Left))
+    {
+        inputReactivated = true;
+        ImGui::SetActiveID(lastActiveId, window);
+        //GImGui->WantTextInputNextFrame = true;
+        GImGui->PlatformImeData.WantTextInput = true;
+        ImGui::GetIO().WantTextInput = true;
+    }
 
     if (ImGui::IsMouseDragging(ImGuiMouseButton_Left))
     {
         int ret = !dragState ? 1 : 0;
         dragState = 1;
-        ImGuiWindow* window = ImGui::GetCurrentWindow();
         ImGui::GetCurrentContext()->NavHighlightItemUnderNav = true;
         ImVec2 delta = ImGui::GetMouseDragDelta(ImGuiMouseButton_Left);
         if (delta.x)
@@ -1294,20 +1311,31 @@ int ScrollWhenDragging(bool drawScrollbars, ImGuiDir refreshButton)
 
         return ret;
     }
-    else if (dragState == 1)
+    else if (!ImGui::IsMouseDown(ImGuiMouseButton_Left))
     {
-        dragState = 0;
-        if (refreshButtonPos)
+        if (dragState == 1)
         {
-            float rate = refreshButtonPos / REFRESH_BUTTON_RANGE;
-            rate *= rate;
-            refreshButtonPos = 0;
-            if (rate > REFRESH_BUTTON_ACTIVE_RATE)
-                return 3;
+            dragState = 0;
+            inputReactivated = false;
+            lastActiveId = 0;
+            if (refreshButtonPos)
+            {
+                float rate = refreshButtonPos / REFRESH_BUTTON_RANGE;
+                rate *= rate;
+                refreshButtonPos = 0;
+                if (rate > REFRESH_BUTTON_ACTIVE_RATE)
+                    return 3;
+            }
+            ImGui::GetCurrentContext()->NavHighlightItemUnderNav = false;
+            ImGui::GetIO().MousePos = { -FLT_MAX, -FLT_MAX }; //ignore mouse release event, buttons won't get pushed
+            return 2;
         }
-        ImGui::GetCurrentContext()->NavHighlightItemUnderNav = false;
-        ImGui::GetIO().MousePos = { -FLT_MAX, -FLT_MAX }; //ignore mouse release event, buttons won't get pushed
-        return 2;
+        else if (inputReactivated)
+        {
+            ImGui::ClearActiveID();
+            lastActiveId = 0;
+            inputReactivated = false;
+        }
     }
 
     return 0;

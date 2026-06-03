@@ -26,9 +26,9 @@
 
 * Activity supports transition animation through MoveHoriz/Vert and sequenceNumber. When new activity is opened its sequenceNumber is compared to the old one and the new activity slides in from either one or the opposite direction.
 
-* Table scrollWhenDragging is enhanced. First the scrollbar won't take any space as it is done on mobile devices. Secondly
-optional refresh button which slides in when scrolling past limits is implemented (experimental).
+* Table scrollWhenDragging is enhanced. 1) the scrollbar won't take any space as it is done on mobile devices. 2) optional refresh button which slides in when scrolling past limits is implemented (experimental). 3) Scrolling won't deactivate Input so keyboard won't show on and off.
 
+* TopWindow now allows its overlayPos children to expand beyond the window padding
 * Code generator now supports generating gettext style translation strings. Translated strings are wrapped inside `ImRad::Translate` call and they support plural form and context. Define IMRAD_WITH_GETTEXT to forward strings to libintl compatible library.
 
 * Generated window fields such as isOpen, ID, animator, animPos, hbXXX, vbXXX were renamed so they now start with an underscore. window.Animation enum items were renamed as well f.e. MoveLeft -> SlideFromLeft, MoveHoriz -> SlideHoriz.
@@ -77,6 +77,7 @@ optional refresh button which slides in when scrolling past limits is implemente
 * Activity
 
   * adds transition animation
+  * adds scrollWhenDragging
 
 * Modal/Popup
 

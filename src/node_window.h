@@ -12,6 +12,7 @@ struct TopWindow : UINode
     direct_val<ImGuiWindowFlags_> flags = 0;
     direct_val<Kind> kind = Window;
     bindable<std::string> title = "title";
+    direct_val<bool> scrollWhenDragging = false;
     bindable<dimension_t> size_x = 640.f;
     bindable<dimension_t> size_y = 480.f;
     bindable<dimension_t> minSize_x = 0;
