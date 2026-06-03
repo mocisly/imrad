@@ -655,7 +655,7 @@ void UINode::DrawSnap(UIContext& ctx)
     }
 
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    dl->AddLine(p, p + ImVec2(w, h), ctx.colors[UIContext::Snap1 + (level - 1)], 3);
+    dl->AddLine(p, p + ImVec2(w, h), ctx.colors[UIContext::Snap1 + (level - 1)], 2 * ImRad::GetUserData().dpiScale);
 }
 
 std::optional<std::pair<UINode*, int>>
@@ -1154,7 +1154,7 @@ void Widget::Draw(UIContext& ctx)
 
     if (!style_fontName.empty() || !style_fontSize.empty())
         ImGui::PushFont(style_fontName.eval(ctx), style_fontSize.eval(ctx));
-    if (ctx.showUntranslated && !IsTranslated() && children.empty()) //containers should draw on their own
+    if (ctx.showUntranslated && children.empty() && !IsTranslated()) //containers should draw on their own
         ImGui::PushStyleColor(ImGuiCol_Text, ctx.colors[UIContext::Color::DrawArgs]);
     else if (!style_text.empty())
         ImGui::PushStyleColor(ImGuiCol_Text, style_text.eval(ImGuiCol_Text, ctx));
@@ -1180,7 +1180,7 @@ void Widget::Draw(UIContext& ctx)
     ImGui::EndDisabled();
     CalcSizeEx(p1, ctx);
 
-    if (ctx.showUntranslated && !IsTranslated() && children.empty())
+    if (ctx.showUntranslated && children.empty() && !IsTranslated())
         ImGui::PopStyleColor();
     else if (!style_text.empty())
         ImGui::PopStyleColor();
@@ -1205,7 +1205,11 @@ void Widget::Draw(UIContext& ctx)
 
     if (!hasPos)
         HashCombineData(ctx.layoutHash, ImGui::GetItemID());
-    if (!(Behavior() & CustomSizerAdd))
+
+    if (hasPos)
+    {
+    }
+    else if (!(Behavior() & CustomSizerAdd))
     {
         if (l.flags & Layout::VLayout)
         {
@@ -1482,7 +1486,7 @@ void Widget::Draw(UIContext& ctx)
         ImVec2 szy{ 0, cached_size.y };
         ImVec2 cx{ cached_size.x / 2, 0 };
         ImVec2 cy{ 0, cached_size.y / 2 };
-        float d = 8.f + (selected ? 1 : 0);
+        float d = (6.f + (selected ? 1 : 0)) * ImRad::GetUserData().dpiScale;
         float dd = 0.66f*d;
         if (hasPos == (ImRad::AlignLeft | ImRad::AlignTop))
             drawList->AddTriangleFilled(cached_pos, cached_pos + ImVec2(d, 0), cached_pos + ImVec2(0, d), clr);
@@ -1533,10 +1537,11 @@ void Widget::Draw(UIContext& ctx)
         (ctx.mode & UIContext::ItemSizingMask) == 0)
     {
         //dl->PushClipRectFullScreen();
+        float th = (selected ? 2.f : 1.f) * ImRad::GetUserData().dpiScale;
         drawList->AddRect(
             cached_pos - ImVec2(1, 1), cached_pos + cached_size,
             selected ? ctx.colors[UIContext::Selected] : ctx.colors[UIContext::Hovered],
-            0, 0, selected ? 2.f : 1.f);
+            0, 0, th);
         //dl->PopClipRect();
     }
     if (ctx.mode == UIContext::SnapInsert && !ctx.snapParent)
@@ -2761,9 +2766,9 @@ bool Widget::PropertyUI(int i, UIContext& ctx)
                     pos_x = -20;
                 if ((hasPos & ImRad::AlignBottom) && pos_y.has_value() && pos_y.value() >= 0)
                     pos_y = -20;
-                if ((hasPos & ImRad::AlignLeft) && pos_x.has_value() && pos_x.value() <= -size.x)
+                if ((hasPos & ImRad::AlignLeft) && size.x > 0 && pos_x.has_value() && pos_x.value() <= -size.x)
                     pos_x = -size.x + 20;
-                if ((hasPos & ImRad::AlignTop) && pos_y.has_value() && pos_y.value() <= -size.y)
+                if ((hasPos & ImRad::AlignTop) && size.y > 0 && pos_y.has_value() && pos_y.value() <= -size.y)
                     pos_y = -size.y + 20;
 
                 //adjust parent index

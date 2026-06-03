@@ -1643,11 +1643,14 @@ void TabsUI()
             std::string fname = u8string(u8path(tab.fname).filename());
             if (fname == "")
                 fname = UNTITLED + std::to_string(++untitled);
-            if (tab.modified)
-                fname += " *";
+            /*if (tab.modified)
+                fname += " *";*/
             bool notClosed = true;
 
-            if (ImGui::BeginTabItem(fname.c_str(), &notClosed, i == activeTab ? ImGuiTabItemFlags_SetSelected : 0))
+            int flags = i == activeTab ? ImGuiTabItemFlags_SetSelected : 0;
+            if (tab.modified)
+                flags |= ImGuiTabItemFlags_UnsavedDocument;
+            if (ImGui::BeginTabItem(fname.c_str(), &notClosed, flags))
                 ImGui::EndTabItem();
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayNormal) && tab.fname != "")
                 ImGui::SetTooltip("%s", tab.fname.c_str());

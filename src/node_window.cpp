@@ -92,8 +92,6 @@ void TopWindow::Draw(UIContext& ctx)
 
     if (!style_fontName.empty() || !style_fontSize.empty())
         ImGui::PushFont(style_fontName.eval(ctx), style_fontSize.eval(ctx));
-    if (ctx.showUntranslated && !IsTranslated())
-        ImGui::PushStyleColor(ImGuiCol_Text, ctx.colors[UIContext::Color::DrawArgs]);
     if (style_padding.has_value())
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, style_padding.eval_px(ctx));
     if (style_spacing.has_value())
@@ -137,6 +135,8 @@ void TopWindow::Draw(UIContext& ctx)
         ImGui::SetNextWindowSizeConstraints({ w, h }, { FLT_MAX, FLT_MAX });
     }
 
+    if (ctx.showUntranslated && !IsTranslated())
+        ImGui::PushStyleColor(ImGuiCol_Text, ctx.colors[UIContext::Color::DrawArgs]);
     if (style_titlePadding.has_value())
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, style_titlePadding.eval_px(ctx));
 
@@ -308,7 +308,7 @@ void TopWindow::Draw(UIContext& ctx)
 }
 
 TopWindow::StyleCounters
-TopWindow::ExportStyle(std::ostream& os, UIContext& ctx)
+TopWindow::ExportStyle(std::ostream& os, bool body, UIContext& ctx)
 {
     StyleCounters sc;
 
@@ -329,6 +329,23 @@ TopWindow::ExportStyle(std::ostream& os, UIContext& ctx)
     {
         ++sc.ncolors;
         os << ctx.ind << "ImGui::PushStyleColor(ImGuiCol_MenuBarBg, " << style_menuBg.to_arg() << ");\n";
+    }
+    if (kind == MainWindow_GLFW || kind == Activity)
+    {
+        ++sc.nvars;
+        if (!body)
+            os << ctx.ind << "ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);\n";
+        else
+            os << ctx.ind << "ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, ImGui::GetStyle().WindowBorderSize);\n";
+    }
+    if (style_titlePadding.has_value())
+    {
+        ++sc.nvars;
+        if (!body)
+            os << ctx.ind << "ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, " <<
+                style_titlePadding.to_arg(ctx.unit) << ");\n";
+        else
+            os << ctx.ind << "ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImGui::GetStyle().FramePadding);\n";
     }
     if (style_padding.has_value())
     {
@@ -372,6 +389,19 @@ TopWindow::ExportStyle(std::ostream& os, UIContext& ctx)
     }
 
     return sc;
+}
+
+bool TopWindow::HasVLayout()
+{
+    for (const auto& child : child_iterator(children, false))
+    {
+        if (child->Behavior() & HasSizeY) {
+            if (child->size_y.stretched() ||
+                (child->size_y.has_value() && child->size_y.value() < 0))
+                return true;
+        }
+    }
+    return false;
 }
 
 void TopWindow::Export(std::ostream& os, UIContext& ctx)
@@ -429,11 +459,10 @@ void TopWindow::Export(std::ostream& os, UIContext& ctx)
         ctx.ind_down();
     }
 
-    auto sc = ExportStyle(os, ctx);
+    auto sc = ExportStyle(os, false, ctx);
 
     if (kind == MainWindow_GLFW)
     {
-        os << ctx.ind << "ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);\n";
         os << ctx.ind << "glfwSetWindowTitle(window, " << title.to_arg() << ");\n";
         os << ctx.ind << "ImGui::SetNextWindowPos({ 0, 0 });\n";
         if (!autoSize)
@@ -449,8 +478,6 @@ void TopWindow::Export(std::ostream& os, UIContext& ctx)
         os << ctx.ind << "if (ImGui::Begin(" << caption << ", &tmpOpen, " << fl.to_arg() << "))\n";
         os << ctx.ind << "{\n";
         ctx.ind_up();
-        os << ctx.ind << "ImGui::PopStyleVar();\n";
-        os << ctx.ind << "ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, ImGui::GetStyle().WindowBorderSize);\n";
 
         if (autoSize)
         {
@@ -496,14 +523,12 @@ void TopWindow::Export(std::ostream& os, UIContext& ctx)
     }
     else if (kind == Activity)
     {
-        os << ctx.ind << "ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);\n";
-
         if (animation == SlideHoriz)
             os << ctx.ind << "ImGui::SetNextWindowPos({ ImRad::GetUserData().WorkRect().Min.x + _animPos.x, ImRad::GetUserData().WorkRect().Min.y }); //SlideHoriz";
         else if (animation == SlideVert)
             os << ctx.ind << "ImGui::SetNextWindowPos({ ImRad::GetUserData().WorkRect().Min.x, ImRad::GetUserData().WorkRect().Min.y + _animPos.y }); //SlideVert";
         else
-            os << ctx.ind << "ImGui::SetNextWindowPos(ImRad::GetUserData().WorkRect().Min);\n";
+            os << ctx.ind << "ImGui::SetNextWindowPos(ImRad::GetUserData().WorkRect().Min);";
 
         if (animation != NoAnimation)
             os << ", Order=" << animOrder.to_arg();
@@ -512,14 +537,17 @@ void TopWindow::Export(std::ostream& os, UIContext& ctx)
         os << ctx.ind << "ImGui::SetNextWindowSize(ImRad::GetUserData().WorkRect().GetSize());";
         //signal designed size
         os << " //{ " << size_x.to_arg(ctx.unit) << ", " << size_y.to_arg(ctx.unit) << " }\n";
+        //set contentSize so activated keyboard doesn't affect screen layout
+        //This sets GetContentRegionAvail used in BoxLayout::BeginLayout
+        if (HasVLayout())
+            os << ctx.ind << "ImGui::SetNextWindowContentSize(ImRad::GetUserData().WindowContentSize());\n";
+
         auto fl = flags;
         fl |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings;
         os << ctx.ind << "bool tmpOpen;\n";
         os << ctx.ind << "if (ImGui::Begin(" << caption << ", &tmpOpen, " << fl.to_arg() << "))\n";
         os << ctx.ind << "{\n";
         ctx.ind_up();
-        os << ctx.ind << "ImGui::PopStyleVar();\n";
-        os << ctx.ind << "ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, ImGui::GetStyle().WindowBorderSize);\n";
 
         if (animation != NoAnimation)
             os << ctx.ind << "_animator.Tick();\n";
@@ -591,19 +619,9 @@ void TopWindow::Export(std::ostream& os, UIContext& ctx)
                 " }, { FLT_MAX, FLT_MAX });\n";
         }
 
-        if (style_titlePadding.has_value())
-        {
-            os << ctx.ind << "ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, " <<
-                style_titlePadding.to_arg(ctx.unit) << ");\n";
-        }
         os << ctx.ind << "if (ImGui::Begin(" << caption << ", &_isOpen, " << flags.to_arg() << "))\n";
         os << ctx.ind << "{\n";
         ctx.ind_up();
-        if (style_titlePadding.has_value())
-        {
-            os << ctx.ind << "ImGui::PopStyleVar();\n";
-            os << ctx.ind << "ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImGui::GetStyle().FramePadding);\n";
-        }
     }
     else if (kind == Popup || kind == ModalPopup)
     {
@@ -710,20 +728,10 @@ void TopWindow::Export(std::ostream& os, UIContext& ctx)
         //begin
         if (kind == ModalPopup)
         {
-            if (style_titlePadding.has_value())
-            {
-                os << ctx.ind << "ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, " <<
-                    style_titlePadding.to_arg(ctx.unit) << ");\n";
-            }
             os << ctx.ind << "bool tmpOpen = true;\n";
             os << ctx.ind << "if (ImGui::BeginPopupModal(" << caption << ", &tmpOpen, " << flags.to_arg() << "))\n";
             os << ctx.ind << "{\n";
             ctx.ind_up();
-            if (style_titlePadding.has_value())
-            {
-                os << ctx.ind << "ImGui::PopStyleVar();\n";
-                os << ctx.ind << "ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImGui::GetStyle().FramePadding);\n";
-            }
         }
         else
         {
@@ -838,10 +846,12 @@ void TopWindow::Export(std::ostream& os, UIContext& ctx)
         os << ctx.ind << "ImGui::PopStyleColor(" << sc.ncolors << ");\n";
     if (sc.nfonts)
         os << ctx.ind << "ImGui::PopFont();\n";
+    if (sc.invscroll)
+        os << ctx.ind << "ImRad::PopInvisibleScrollbar();\n";
 
     os << ctx.ind << "DrawPopups();\n";
 
-    ExportStyle(os, ctx);
+    ExportStyle(os, true, ctx);
 
     os << ctx.ind << "/// @separator\n\n";
 
@@ -882,10 +892,6 @@ void TopWindow::Export(std::ostream& os, UIContext& ctx)
         os << ctx.ind << "ImGui::End();\n"; //outside of the block
     }
 
-    if (style_titlePadding.has_value() && (kind == Window || kind == ModalPopup))
-        os << ctx.ind << "ImGui::PopStyleVar();\n";
-    if (kind == Activity)
-        os << ctx.ind << "ImGui::PopStyleVar();\n"; //WindowBorderSize=0
     if (animation == FadeIn)
         os << ctx.ind << "ImGui::PopStyleVar();\n";
 
@@ -895,6 +901,8 @@ void TopWindow::Export(std::ostream& os, UIContext& ctx)
         os << ctx.ind << "ImGui::PopStyleColor(" << sc.ncolors << ");\n";
     if (sc.nfonts)
         os << ctx.ind << "ImGui::PopFont();\n";
+    if (sc.invscroll)
+        os << ctx.ind << "ImRad::PopInvisibleScrollbar();\n";
 
     os << ctx.ind << "/// @end TopWindow\n";
 

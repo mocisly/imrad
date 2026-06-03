@@ -271,7 +271,7 @@ enum SeparatorFlags_
     SeparatorFlags_Vertical = 1 << 1,
     SeparatorFlags_SpanAllColumns = 1 << 2,   // Make separator cover all columns of a legacy Columns() set.
 };
-void SeparatorEx(SeparatorFlags flags, float thickness = 1.f);
+void SeparatorEx(SeparatorFlags flags, float thickness = 0);
 
 // Adds negative dimensions support
 void Dummy(const ImVec2& size);
@@ -339,6 +339,9 @@ Rect GetParentInnerRect();
 Rect GetWindowClipRect();
 
 void SetWindowSkipItems(bool skip);
+
+//used by CalcItemSize(-1)
+ImVec2 SetWindowContentRegionRectMax(const ImVec2& p);
 
 ImFont* GetFontByName(const char* name);
 ImFont* GetFontByName(const std::string& name);
@@ -659,11 +662,15 @@ void BoxLayout<HORIZ>::BeginLayout()
         else
             total += it.size;
     }
+    float remaining = std::max(0.f, avail - total);
     for (Item& it : prevItems) {
         if (it.stretch)
-            it.size = (float)(int)(it.size * (avail - total) / stretchTotal);
+            it.size = (float)(int)(it.size * remaining / stretchTotal);
         else if (it.size < 0)
-            it.size = (float)(int)(1.0 * (avail - total) / stretchTotal);
+            it.size = (float)(int)(1.0 * remaining / stretchTotal);
+        else
+            continue;
+        it.size = std::max(1.f, it.size); //some widgets like Spacer, Child replace size=0 with higher
         //it.size += avail;
     }
 }
@@ -810,6 +817,14 @@ void SeparatorEx(SeparatorFlags flags, float thickness)
     if (ImGui::GetCurrentWindow()->DC.CurrentColumns)
         fl |= ImGuiSeparatorFlags_SpanAllColumns;
 
+    if (!thickness)
+    {
+#if IMGUI_VERSION_NUM >= 19270
+        thickness = ImGui::GetStyle().SeparatorSize;
+#else
+        thickness = 1 * ImGui::GetStyle()._MainScale;
+#endif
+    }
     ImGui::SeparatorEx(flags, thickness);
 }
 
@@ -1071,6 +1086,13 @@ Rect GetWindowClipRect()
 void SetWindowSkipItems(bool skip)
 {
     ImGui::GetCurrentWindow()->SkipItems = skip;
+}
+
+ImVec2 SetWindowContentRegionRectMax(const ImVec2& p)
+{
+    ImVec2 old = ImGui::GetCurrentWindow()->ContentRegionRect.Max;
+    ImGui::GetCurrentWindow()->ContentRegionRect.Max = p;
+    return old;
 }
 
 void PushInvisibleScrollbar()

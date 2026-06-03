@@ -257,6 +257,24 @@ void Init(struct android_app* app)
         ImGui_ImplAndroid_Init(g_App->window);
         ImGui_ImplOpenGL3_Init("#version 300 es");
 
+        //Init JNI
+        JavaVM* java_vm = g_App->activity->vm;
+        if (java_vm->GetEnv((void**)&g_javaEnv, JNI_VERSION_1_6) == JNI_ERR ||
+            java_vm->AttachCurrentThread(&g_javaEnv, nullptr) != JNI_OK)
+        {
+            __android_log_print(ANDROID_LOG_ERROR, g_LogTag, "%s",
+                                "JNI initialization failed");
+        }
+        g_thisEnv = g_javaEnv;
+        g_nativeActivityClazz = g_javaEnv->GetObjectClass(g_App->activity->clazz);
+        if (g_nativeActivityClazz)
+            g_nativeActivityClazz = (jclass)g_JavaEnv->NewGlobalRef(g_nativeActivityClazz);
+        if (!g_nativeActivityClazz)
+        {
+            __android_log_print(ANDROID_LOG_ERROR, g_LogTag, "%s",
+                                "JNI initialization failed");
+        }
+
         GetDisplayInfo();
         io.MouseDragThreshold *= ImRad::GetUserData().dpiScale;
         // TODO: Load ImRAD style including fonts:
@@ -288,23 +306,6 @@ void Init(struct android_app* app)
         ImGui::GetStyle().ScaleAllSizes(ImRad::GetUserData().dpiScale);
         ImGui::GetStyle().FontScaleDpi = ImRad::GetUserData().dpiScale;
 
-        //Init JNI
-        JavaVM* java_vm = g_App->activity->vm;
-        if (java_vm->GetEnv((void**)&g_javaEnv, JNI_VERSION_1_6) == JNI_ERR ||
-            java_vm->AttachCurrentThread(&g_javaEnv, nullptr) != JNI_OK)
-        {
-            __android_log_print(ANDROID_LOG_ERROR, g_LogTag, "%s",
-                                "JNI initialization failed");
-        }
-        g_thisEnv = g_javaEnv;
-        g_nativeActivityClazz = g_javaEnv->GetObjectClass(g_App->activity->clazz);
-        if (g_nativeActivityClazz)
-            g_nativeActivityClazz = (jclass)java_env->NewGlobalRef(g_nativeActivityClazz);
-        if (!g_nativeActivityClazz)
-        {
-            __android_log_print(ANDROID_LOG_ERROR, g_LogTag, "%s",
-                                "JNI initialization failed");
-        }
     }
 }
 

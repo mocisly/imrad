@@ -215,8 +215,9 @@ struct direct_val<T, true> : property_base
                 s = str.substr(i, j - i);
             auto id = stx::find_if(ids, [&](const auto& id) { return id.first == s; });
             //assert(id != ids.end());
-            if (s == "0" ||
-                (!s.compare(0, 5, "ImGui") && !s.compare(s.size() - 5, 5, "_None")))
+            if (s == "0")
+                //ImGuiDir_None != 0
+                //|| (!s.compare(0, 5, "ImGui") && !s.compare(s.size() - 5, 5, "_None")))
                 ;
             else if (id != ids.end())
                 val |= id->second;
@@ -230,9 +231,9 @@ struct direct_val<T, true> : property_base
     }
     std::string to_arg(std::string_view = "", std::string_view = "") const {
         std::string str;
-        bool simpleEnum = false;
+        bool simpleEnum = false; //e.g. ImGuiDir
         for (const auto& id : ids) {
-            if (id.first != "" && !id.second)
+            if (id.first != "" && (!id.second || id.second == -1))
                 simpleEnum = true;
         }
         if (simpleEnum) {
@@ -240,9 +241,17 @@ struct direct_val<T, true> : property_base
             str = it == ids.end() ? "0" : it->first;
         }
         else {
+            int flags = val;
             for (const auto& id : ids)
-                if ((val & id.second) == id.second && id.first != "")
+                if (id.first != "" && (flags & id.second) == id.second) {
+                    flags &= ~id.second;
                     str += id.first + " | ";
+                }
+            if (flags) {
+                std::ostringstream os;
+                os << "0x" << std::hex << flags;
+                str += os.str() + " | ";
+            }
             if (str != "")
                 str.resize(str.size() - 3);
             else

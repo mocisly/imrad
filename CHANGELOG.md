@@ -10,15 +10,15 @@
 
 * UI and designer should render with correct DPI scaling
 
-* Experimental - bindable text properties now allow to set translations through Edit Text dialog
+* Bindable text properties now allow to set translations through Edit Text dialog (experimental)
 
 ### New Code Features
 
-* Owner-drawn Combo through `OnDrawItems` event
+* Owner-drawn Combo through `DrawItems` event
 
-* Input with suggestion popup through `OnDrawSuggestions` event
+* Input with suggestion popup through `DrawSuggestions` event
 
-* Added `onActive` event to all widgets
+* Added `Item.Active` event to all widgets
 
 * Configurations allow to generate a set of separate `Draw` functions and select one at runtime. Event handlers and field variables are shared. Useful for designing UI variants like per desktop/mobile platform, by screen rotation etc.
 
@@ -43,7 +43,7 @@ optional refresh button which slides in when scrolling past limits is implemente
 
 * Combo
 
-  * adds onDrawItems event
+  * adds DrawItems event
 
 * Image
 
@@ -53,7 +53,7 @@ optional refresh button which slides in when scrolling past limits is implemente
 
   * adds textCursor color
   * adds suggestionBg, suggestionSpacing
-  * adds onDrawSuggestions event
+  * adds DrawSuggestions event
 
 * MenuItem
 
@@ -64,10 +64,11 @@ optional refresh button which slides in when scrolling past limits is implemente
   * adds rounding
   * adds rowCount.reversed to iterate rows in reversed order
   * adds scrollWhenDragging.refreshButton (experimental)
+  * adds borderLight, borderStrong colors
 
 * Text
 
-  * adds horizAlignment, size_x. When horizAlignment is activated it renders ellipsis if needed.
+  * adds horizAlignment, size_x. When horizAlignment is activated it renders ellipsis when needed.
 
 * TreeItem
 

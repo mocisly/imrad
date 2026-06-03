@@ -776,12 +776,14 @@ void Table::DoExport(std::ostream& os, UIContext& ctx)
         if (scrollWhenDragging)
         {
             os << ctx.ind;
-            if (scrollRefreshButton)
+            if (scrollRefreshButton != ImGuiDir_None)
                 os << "if (";
 
             os << "ImRad::ScrollWhenDragging(true, " << scrollRefreshButton.to_arg() << ")";
 
-            if (scrollRefreshButton) {
+            if (scrollRefreshButton != ImGuiDir_None) {
+                if (onRefreshButton.empty())
+                    PushError(ctx, "OnRefreshButton is unassigned");
                 os << " == 3)\n";
                 ctx.ind_up();
                 os << ctx.ind << onRefreshButton.to_arg() << ";\n";
